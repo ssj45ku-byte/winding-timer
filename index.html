@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ワインディング 音声タイマー</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5ef;color:#263b35;font-family:system-ui,sans-serif}
+main{max-width:850px;margin:auto;padding:24px 16px}
+h1{font-size:28px}h2{font-size:18px}
+section{background:white;border:1px solid #dce3db;border-radius:16px;padding:20px;margin:18px 0}
+.timer{text-align:center;background:#173e32;color:white}
+#clock{font-size:80px;font-weight:bold;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit}
+button{padding:12px;border:1px solid #b9cfc0;border-radius:8px;background:white;color:#244d3c;cursor:pointer}
+button:disabled{opacity:.4}
+#start,#save{background:#d5edb5;font-weight:bold}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+progress{width:100%;height:8px;margin-bottom:20px}
+.note{color:#66756c;font-size:13px;line-height:1.8}
+.settings label{display:block;margin:14px 0}
+select{max-width:100%;padding:8px}
+.timing-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.timing-grid label{font-size:14px}
+.timing-grid span{display:block;margin-top:6px}
+.timing-value{width:90px;padding:9px;border:2px solid #d48787;border-radius:8px}
+.event{display:grid;grid-template-columns:35px 75px 1fr 36px;gap:6px;align-items:center;border-bottom:1px solid #edf0eb;border-left:4px solid #ccd6cd;padding:10px 0 10px 6px}
+.event.orange{border-left-color:#eca669}
+.event.pink{border-left-color:#de8bcd}
+.event.yellow{border-left-color:#dfc744}
+.event.blue{border-left-color:#77a7e5}
+.event span{font-size:12px}
+.event input{min-width:0;width:100%;padding:7px 4px;border:1px solid #e0e6df;border-radius:6px}
+.event button{padding:7px}
+input[readonly]{background:#f4f5ef}
+#save{margin-top:16px}
+footer{text-align:center;font-size:12px;color:#66756c}
+@media(max-width:500px){
+.timing-grid{grid-template-columns:1fr}
+.event{grid-template-columns:28px 62px 1fr 32px;gap:4px}
+.event input{font-size:13px}
+section{padding:14px}
+}
+</style>
+</head>
+<body>
+<main>
+<noscript>
+<section>この表示方法ではタイマーを実行できません。公開されたページをSafariで開いてください。</section>
+</noscript>
+<header>
+<p class="note">美容師国家試験 実技練習</p>
+<h1>ワインディング 音声タイマー</h1>
+</header>
+<section class="timer">
+<div id="status" role="status">準備できました</div>
+<div id="clock">00:00</div>
+<p id="next">次の案内</p>
+<progress id="progress" value="0" max="1382"></progress>
+<div class="controls">
+<button id="start">スタート</button>
+<button id="pause" disabled>一時停止</button>
+<button id="reset">リセット</button>
+</div>
+</section>
+<section>
+<h2>赤枠セルの時間設定</h2>
+<p class="note">秒数を変えると、各案内と終了時刻を自動更新します。Excelの変更は自動同期されないため、変更した数値をここに入力してください。計測後はリセットしてから変更してください。</p>
+<div class="timing-grid">
+<label>C2 · 最初のブロッキング
+<span><input id="timing-C2" class="timing-value" type="number" min="1" max="600" step="1" aria-label="C2の秒数"> 秒</span></label>
+<label>F2 · 右フロントのブロッキング
+<span><input id="timing-F2" class="timing-value" type="number" min="1" max="600" step="1" aria-label="F2の秒数"> 秒</span></label>
+<label>F6 · 右サイドのブロッキング
+<span><input id="timing-F6" class="timing-value" type="number" min="1" max="600" step="1" aria-label="F6の秒数"> 秒</span></label>
+<label>J2 · 左サイドのブロッキング
+<span><input id="timing-J2" class="timing-value" type="number" min="1" max="600" step="1" aria-label="J2の秒数"> 秒</span></label>
+<label>N3 · 上巻き1本あたり
+<span><input id="timing-N3" class="timing-value" type="number" min="1" max="600" step="1" aria-label="N3の秒数"> 秒</span></label>
+<label>O3 · 下巻き1本あたり
+<span><input id="timing-O3" class="timing-value" type="number" min="1" max="600" step="1" aria-label="O3の秒数"> 秒</span></label>
+</div>
+<p id="timingStatus" role="status"></p>
+<strong id="endTime"></strong>
+</section>
+<section class="settings">
+<h2>音声の設定</h2>
+<label><input id="audio" type="checkbox" checked> 読み上げを有効にする</label>
+<label>声
+<select id="voice"><option value="">端末の標準音声（日本語）</option></select>
+</label>
+<label>読み上げ速度
+<select id="rate">
+<option value="0.85">ゆっくり</option>
+<option value="1" selected>標準</option>
+<option value="1.2">速め</option>
+</select>
+</label>
+<label>経過時間の案内
+<select id="interval">
+<option value="300">5分ごと</option>
+<option value="60">1分ごと</option>
+<option value="0">なし</option>
+</select>
+</label>
+<button id="test">音声を試す</button>
+<p id="audioStatus" role="status"></p>
+<p class="note">練習前に音声と音量を確認してください。練習中はこの画面を開いたまま使用してください。画面ロックや別アプリへの切り替え中は音声が止まる場合があります。</p>
+</section>
+<section>
+<h2>読み上げスケジュール</h2>
+<button id="defaults">表の設定に戻す</button>
+<p class="note">時刻は赤枠の設定から自動計算されます。文章を変更したら「変更を保存」を押してください。同時刻の案内は続けて読み上げます。</p>
+<div id="events"></div>
+<button id="save">変更を保存</button>
+<p id="saved" role="status"></p>
+</section>
+<footer>ワインディング練習用タイマー</footer>
+</main>
+<script>
+window.DEFAULT_TIMING={C2:50,F2:20,F6:20,J2:20,N3:24,O3:24};
+
+window.calculateTiming=function(p){
+ const v={C2:p.C2};
+ let s=p.C2;
+ for(let r=3;r<=18;r++){
+  if(r>3)s+=r<=9?p.N3:p.O3;
+  v[`C${r}`]=s;
+ }
+ s+=p.O3;
+ v.G2=s;
+ for(let r=3;r<=23;r++){
+  s+=r===3?p.F2:r===7?p.F6:r<=13?p.N3:p.O3;
+  v[`G${r}`]=s;
+ }
+ s+=p.O3;
+ v.K2=s;
+ for(let r=3;r<=20;r++){
+  s+=r===3?p.J2:r<=9?p.N3:p.O3;
+  v[`K${r}`]=s;
+ }
+ return v;
+};
+
+window.DEFAULT_EVENTS=[];
+const baseTimes=window.calculateTiming(window.DEFAULT_TIMING);
+function add(cell,text,color='step'){
+ window.DEFAULT_EVENTS.push({cell,text,color,seconds:baseTimes[cell]});
+}
+function rods(col,start,count,name,color,first=1,prefix=''){
+ for(let i=0;i<count;i++){
+  add(col+(start+i),`${prefix}${name}${first+i}本目`,color);
+ }
+}
+add('C2','50秒、ブロッキング終了');
+rods('C',3,6,'オレンジ','orange');
+rods('C',9,4,'ピンク','pink');
+rods('C',13,3,'黄色','yellow');
+rods('C',16,3,'ブルー','blue');
+add('G2','センター終了');
+rods('G',3,3,'','orange',1,'フロント');
+add('G6','フロント3本終了、サイドブロッキング');
+rods('G',7,6,'オレンジ','orange',4,'バックサイド');
+rods('G',13,3,'ピンク','pink',1,'バックサイド');
+rods('G',16,2,'黄色','yellow',1,'バックサイド');
+rods('G',18,2,'ブルー','blue',1,'バックサイド');
+rods('G',20,2,'ピンク','pink',1,'バックサイド');
+rods('G',22,2,'黄色','yellow',1,'バックサイド');
+add('K2','右サイド終了、左サイドブロッキング');
+rods('K',3,2,'','orange',1,'左フロント');
+rods('K',5,4,'オレンジ','orange',3,'左バックサイド');
+rods('K',9,3,'ピンク','pink',1,'左バックサイド');
+rods('K',12,2,'黄色','yellow',1,'左バックサイド');
+rods('K',14,2,'ブルー','blue',1,'左バックサイド');
+rods('K',16,2,'ピンク','pink',1,'左バックサイド');
+rods('K',18,2,'黄色','yellow',1,'左バックサイド');
+add('K20','23分2秒、やめ');
+
+const $=id=>document.getElementById(id);
+const synth=window.speechSynthesis;
+const clone=()=>window.DEFAULT_EVENTS.map(e=>({...e}));
+let events=clone();
+
+try{
+ const saved=JSON.parse(localStorage.getItem('winding-events'));
+ if(Array.isArray(saved)&&saved.length===events.length&&
+ saved.every((e,i)=>e.cell===events[i].cell&&
+ Number.isInteger(e.seconds)&&e.seconds>=0&&
+ typeof e.text==='string'&&e.text.trim())){
+  events=saved;
+ }
+}catch{}
+
+let timing={...window.DEFAULT_TIMING};
+const validTiming=p=>p&&Object.keys(window.DEFAULT_TIMING).every(
+ k=>Number.isInteger(p[k])&&p[k]>=1&&p[k]<=600
+);
+try{
+ const saved=JSON.parse(localStorage.getItem('winding-timing'));
+ if(validTiming(saved))timing=saved;
+}catch{}
+
+let running=false,elapsed=0,anchor=0,timeline=[],cursor=0,voices=[],wake=null;
+const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+function applyTiming(){
+ const times=window.calculateTiming(timing);
+ events=events.map(e=>({
+  ...e,
+  seconds:times[e.cell],
+  text:e.cell==='C2'
+   ?`${timing.C2}秒、ブロッキング終了`
+   :e.cell==='K20'
+   ?`${Math.floor(times.K20/60)}分${times.K20%60?`${times.K20%60}秒`:''}、やめ`
+   :e.text
+ }));
+ $('endTime').textContent=`終了予定 ${fmt(times.K20)}`;
+}
+
+function speak(text){
+ if(!synth||!$('audio').checked)return;
+ const u=new SpeechSynthesisUtterance(text);
+ u.lang='ja-JP';
+ u.rate=Number($('rate').value);
+ const voice=voices.find(v=>v.voiceURI===$('voice').value);
+ if(voice)u.voice=voice;
+ u.onerror=e=>{
+  if(e.error!=='canceled'&&e.error!=='interrupted'){
+   $('audioStatus').textContent='音声を再生できませんでした。端末の日本語音声設定を確認してください。';
+  }
+ };
+ synth.speak(u);
+}
+
+function loadVoices(){
+ if(!synth)return;
+ voices=synth.getVoices().filter(v=>v.lang.startsWith('ja'));
+ const selected=$('voice').value;
+ $('voice').replaceChildren(new Option('端末の標準音声（日本語）',''));
+ voices.forEach(v=>$('voice').add(new Option(v.name,v.voiceURI)));
+ $('voice').value=selected;
+}
+if(synth){
+ loadVoices();
+ synth.onvoiceschanged=loadVoices;
+}else{
+ $('audioStatus').textContent='このブラウザーは音声読み上げに対応していません。';
+ $('audio').checked=false;
+ $('audio').disabled=true;
+ $('test').disabled=true;
+}
+
+function renderEvents(){
+ $('events').replaceChildren();
+ events.forEach((e,i)=>{
+  const row=document.createElement('div');
+  row.className=`event ${e.color}`;
+  const cell=document.createElement('span');
+  cell.textContent=e.cell;
+  const time=document.createElement('input');
+  time.readOnly=true;
+  time.value=fmt(e.seconds);
+  time.className='time';
+  time.setAttribute('aria-label',`${e.cell} の時刻`);
+  const text=document.createElement('input');
+  text.value=e.text;
+  text.className='text';
+  text.setAttribute('aria-label',`${e.cell} の読み上げ文`);
+  const play=document.createElement('button');
+  play.textContent='▶';
+  play.setAttribute('aria-label',`${e.cell} を試聴`);
+  play.onclick=()=>{
+   synth?.cancel();
+   speak(text.value);
+  };
+  row.append(cell,time,text,play);
+  $('events').append(row);
+ });
+}
+
+function makeTimeline(){
+ const end=events.find(e=>e.cell==='K20').seconds;
+ timeline=events.filter(e=>e.seconds<=end).map(e=>({...e}));
+ const interval=Number($('interval').value);
+ if(interval){
+  for(let s=interval;s<end;s+=interval){
+   timeline.push({seconds:s,text:`${s/60}分経過`,cell:'定期'});
+  }
+ }
+ timeline.sort((a,b)=>a.seconds-b.seconds);
+ cursor=0;
+ $('progress').max=end;
+}
+
+async function keepAwake(){
+ try{
+  if(running&&navigator.wakeLock){
+   wake=await navigator.wakeLock.request('screen');
+  }
+ }catch{}
+}
+function releaseWake(){
+ if(wake)wake.release().catch(()=>{});
+ wake=null;
+}
+
+function setControls(){
+ $('start').disabled=running;
+ $('start').textContent=elapsed?'再開':'スタート';
+ $('pause').disabled=!running;
+ document.querySelectorAll(
+  '.event input,.timing-value,#save,#defaults,#interval'
+ ).forEach(e=>e.disabled=running||elapsed>0);
+}
+
+function draw(){
+ $('clock').textContent=fmt(elapsed);
+ $('progress').value=elapsed;
+ const next=timeline[cursor]||events[0];
+ $('next').textContent=cursor>=timeline.length&&timeline.length
+  ?'すべての案内が終了しました'
+  :`次 ${fmt(next.seconds)} · ${next.text}`;
+}
+
+function tick(){
+ if(!running)return;
+ elapsed=Math.min(
+  (performance.now()-anchor)/1000,
+  Number($('progress').max)
+ );
+ const due=[];
+ while(cursor<timeline.length&&timeline[cursor].seconds<=elapsed){
+  due.push(timeline[cursor++]);
+ }
+ if(due.length){
+  const stale=due.some(e=>elapsed-e.seconds>5);
+  const selected=stale?due.slice(-1):due;
+  $('status').textContent=selected.map(e=>e.text).join('、');
+  if(stale)synth?.cancel();
+  speak(selected.map(e=>e.text).join('、'));
+ }
+ draw();
+ if(elapsed>=Number($('progress').max)){
+  running=false;
+  $('start').disabled=true;
+  $('pause').disabled=true;
+  releaseWake();
+ }
+}
+
+$('start').onclick=()=>{
+ if([...document.querySelectorAll('.timing-value')].some(
+  e=>!e.checkValidity()||!e.value
+ )){
+  $('timingStatus').textContent='各秒数は1〜600の整数で入力してください。';
+  return;
+ }
+ if(!elapsed)makeTimeline();
+ running=true;
+ anchor=performance.now()-elapsed*1000;
+ setControls();
+ $('status').textContent='練習中';
+ speak(elapsed?'タイマーを再開します':'ワインディング、スタート');
+ keepAwake();
+ tick();
+};
+
+$('pause').onclick=()=>{
+ tick();
+ running=false;
+ synth?.cancel();
+ releaseWake();
+ setControls();
+ if(elapsed>=Number($('progress').max))$('start').disabled=true;
+ $('status').textContent='一時停止中';
+};
+
+$('reset').onclick=()=>{
+ running=false;
+ elapsed=0;
+ cursor=0;
+ synth?.cancel();
+ releaseWake();
+ makeTimeline();
+ setControls();
+ $('status').textContent='準備できました';
+ draw();
+};
+
+$('test').onclick=()=>{
+ synth?.cancel();
+ speak(`音声のテストです。${timing.C2}秒、ブロッキング終了。オレンジ1本目。`);
+};
+
+$('audio').onchange=()=>{
+ if(!$('audio').checked)synth?.cancel();
+};
+
+$('save').onclick=()=>{
+ const texts=[...$('events').children].map(
+  row=>row.querySelector('.text').value.trim()
+ );
+ if(texts.some(t=>!t)){
+  $('saved').textContent='読み上げ文は空欄にせず入力してください。';
+  return;
+ }
+ events=events.map((e,i)=>({...e,text:texts[i]}));
+ applyTiming();
+ renderEvents();
+ try{
+  localStorage.setItem('winding-events',JSON.stringify(events));
+  $('saved').textContent='このブラウザーに保存しました。';
+ }catch{
+  $('saved').textContent='変更は反映しましたが、端末への保存はできませんでした。';
+ }
+ makeTimeline();
+ draw();
+};
+
+$('defaults').onclick=()=>{
+ events=clone();
+ timing={...window.DEFAULT_TIMING};
+ Object.keys(timing).forEach(k=>$(`timing-${k}`).value=timing[k]);
+ applyTiming();
+ try{
+  localStorage.removeItem('winding-events');
+  localStorage.removeItem('winding-timing');
+ }catch{}
+ renderEvents();
+ makeTimeline();
+ draw();
+ $('saved').textContent='Excel の設定に戻しました。';
+ $('timingStatus').textContent='';
+ $('start').disabled=false;
+};
+
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='visible'&&running){
+  tick();
+  keepAwake();
+ }
+});
+
+Object.keys(timing).forEach(k=>{
+ const input=$(`timing-${k}`);
+ input.value=timing[k];
+ input.oninput=()=>{
+  if(running||elapsed>0)return;
+  const proposed=Object.fromEntries(
+   Object.keys(timing).map(
+    key=>[key,Number($(`timing-${key}`).value)]
+   )
+  );
+  const valid=validTiming(proposed);
+  $('start').disabled=!valid;
+  if(!valid){
+   $('timingStatus').textContent='各秒数は1〜600の整数で入力してください。';
+   return;
+  }
+  timing=proposed;
+  applyTiming();
+  renderEvents();
+  makeTimeline();
+  draw();
+  try{
+   localStorage.setItem('winding-timing',JSON.stringify(timing));
+   localStorage.setItem('winding-events',JSON.stringify(events));
+   $('timingStatus').textContent='時刻を更新し、保存しました。';
+  }catch{
+   $('timingStatus').textContent='時刻を更新しましたが、端末への保存はできませんでした。';
+  }
+ };
+});
+
+applyTiming();
+renderEvents();
+makeTimeline();
+draw();
+setInterval(tick,100);
+</script>
+</body>
+</html>
